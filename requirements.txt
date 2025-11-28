@@ -1,0 +1,45 @@
+# ===========================================
+# Drone Gesture Control - Dependencias
+# ===========================================
+
+# PyTorch (usar la versión compatible con tu CUDA)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Procesamiento de imágenes
+opencv-python>=4.8.0
+Pillow>=10.0.0
+mediapipe>=0.10.0
+
+# Modelos pre-entrenados
+segmentation-models-pytorch>=0.3.0
+timm>=0.9.0
+
+# Entrenamiento y métricas
+scikit-learn>=1.3.0
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# Visualización
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Simulador 3D
+pygame>=2.5.0
+PyOpenGL>=3.1.6
+PyOpenGL-accelerate>=3.1.6
+
+# Utilidades
+pathlib2>=2.3.0
+dataclasses>=0.6
+
+# ===========================================
+# Instalación:
+# pip install -r requirements.txt
+#
+# Para GPU NVIDIA (CUDA 11.8):
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#
+# Para CPU only:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# ===========================================
