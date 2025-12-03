@@ -72,11 +72,13 @@ python visualize_architectures.py --model temporal
 
 ### Paso 3: Entrenar y Comparar Clasificadores
 
+**⚡ Ahora con Transfer Learning:** Se congelan los backbones pre-entrenados, entrenando solo las últimas capas. ¡Entrenamiento 3-5x más rápido!
+
 ```bash
-# Entrenamiento completo (100 épocas, ~4-5 horas)
+# Entrenamiento completo (100 épocas, ~1.5-2 horas con freeze)
 python train_classifier_compare.py
 
-# Modo rápido para pruebas (10 épocas, ~30 min)
+# Modo rápido para pruebas (10 épocas, ~10-15 min)
 python train_classifier_compare.py --quick
 
 # Entrenar solo modelos específicos
@@ -84,19 +86,24 @@ python train_classifier_compare.py --models resnet18 mobilenetv3_small
 ```
 
 **Lo que hace:**
-1. Entrena 4 modelos: ResNet18, ResNet34, MobileNetV3-Large, MobileNetV3-Small
+1. Entrena 4 modelos con freeze de backbone (solo últimas capas)
 2. Registra métricas completas (train/val/test) por época
 3. Calcula Overfitting Score y Performance Score
 4. Selecciona automáticamente el mejor modelo
-5. Genera gráficos comparativos
+5. Genera gráficos de evolución individuales y comparativos
 
 **Outputs:**
 - Checkpoints: `/checkpoints/classifier_<modelo>_best.pt`
 - Métricas: `/results/classifier_<modelo>_*_metrics.json`
 - Comparación: `/results/model_comparison_results.json`
-- Gráficos:
-  - `comparison_training_curves.png`
-  - `comparison_final_metrics.png`
+- Gráficos individuales (4 paneles cada uno):
+  - `evolution_resnet18.png` - Loss, Accuracy, Overfitting, LR schedule
+  - `evolution_resnet34.png`
+  - `evolution_mobilenetv3_large.png`
+  - `evolution_mobilenetv3_small.png`
+- Gráficos comparativos:
+  - `comparison_training_curves.png` - Curvas de todos los modelos
+  - `comparison_final_metrics.png` - Métricas finales lado a lado
 
 **Cómo interpretar resultados:**
 ```json

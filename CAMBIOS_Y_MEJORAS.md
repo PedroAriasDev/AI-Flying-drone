@@ -4,6 +4,48 @@ Este documento detalla todas las modificaciones realizadas al proyecto de contro
 
 ---
 
+## 🚀 ÚLTIMAS MEJORAS: Transfer Learning y Visualización Avanzada
+
+### **Transfer Learning con Freeze de Backbone**
+
+**Implementación:** Se congela el backbone de los modelos pre-entrenados, entrenando solo las capas finales (fc o classifier).
+
+**Beneficios:**
+- ⚡ **Entrenamiento 3-5x más rápido**: Solo se entrenan ~5-10% de los parámetros
+- 💾 **Menor uso de memoria**: Menos gradientes que calcular
+- 🎯 **Mejor generalización**: Aprovecha características pre-entrenadas de ImageNet
+- 🔄 **Convergencia más rápida**: Las capas base ya están optimizadas
+
+**Detalles técnicos:**
+- **ResNet18/34**: Se congela todo excepto la capa `fc` (fully connected final)
+- **MobileNetV3**: Se congela todo excepto el `classifier`
+- **Reducción típica**: ~95% de parámetros congelados, ~5% entrenables
+
+**Uso automático:** Ambos scripts de entrenamiento ahora aplican freeze automáticamente.
+
+### **Gráficos de Evolución Individuales por Modelo**
+
+**Nuevo feature:** Cada modelo genera automáticamente un gráfico completo de evolución con 4 paneles:
+
+1. **Evolución de Loss**: Train vs Val loss por época
+2. **Evolución de Accuracy**: Train vs Val vs Test accuracy (con línea de best epoch)
+3. **Tracking de Overfitting**: Diferencia Train-Val con umbrales de alerta (5% y 10%)
+4. **Learning Rate Schedule**: Visualización del decay de LR (escala logarítmica)
+
+**Outputs generados:**
+- `evolution_resnet18.png`
+- `evolution_resnet34.png`
+- `evolution_mobilenetv3_large.png`
+- `evolution_mobilenetv3_small.png`
+
+**Ventajas:**
+- 📊 Diagnóstico visual completo del entrenamiento
+- 🔍 Detección temprana de overfitting
+- 📈 Verificación del schedule de learning rate
+- 🎯 Comparación fácil entre modelos
+
+---
+
 ## ⚠️ CAMBIO IMPORTANTE: Eliminación de Red de Segmentación UNet
 
 **La red de segmentación UNet ha sido eliminada del flujo de trabajo.**
