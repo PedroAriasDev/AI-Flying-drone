@@ -238,9 +238,25 @@ def train_single_model(model_name: str, epochs: int, batch_size: int,
         # Registrar métricas
         metrics.record_epoch(epoch, train_loss, train_acc, val_loss, val_acc, current_lr)
 
-        print(f"  Train - Loss: {train_loss:.4f}, Acc: {train_acc:.4f}")
-        print(f"  Val   - Loss: {val_loss:.4f}, Acc: {val_acc:.4f}")
-        print(f"  LR: {current_lr:.6f}")
+        # Visualización mejorada de accuracy
+        print(f"  📊 RESULTADOS DE LA ÉPOCA:")
+        print(f"     Train - Loss: {train_loss:.4f}, Acc: {train_acc*100:.2f}%")
+        print(f"     Val   - Loss: {val_loss:.4f}, Acc: {val_acc*100:.2f}%")
+
+        # Indicar si es el mejor modelo hasta ahora
+        if val_acc >= metrics.best_val_acc:
+            print(f"     ⭐ NUEVO MEJOR MODELO! (Anterior: {metrics.best_val_acc*100:.2f}%)")
+
+        # Mostrar diferencia train-val (overfitting indicator)
+        acc_diff = train_acc - val_acc
+        if acc_diff > 0.1:
+            print(f"     ⚠️  Overfitting detectado: {acc_diff*100:.2f}% diferencia")
+        elif acc_diff > 0.05:
+            print(f"     ⚡ Ligero overfitting: {acc_diff*100:.2f}% diferencia")
+        else:
+            print(f"     ✅ Buen balance: {acc_diff*100:.2f}% diferencia")
+
+        print(f"     LR: {current_lr:.6f}")
 
         # Actualizar scheduler
         scheduler.step()
@@ -272,7 +288,24 @@ def train_single_model(model_name: str, epochs: int, batch_size: int,
         model, test_loader, criterion, device, return_predictions=True
     )
 
-    print(f"Test - Loss: {test_loss:.4f}, Acc: {test_acc:.4f}")
+    # Visualización mejorada del test accuracy
+    print(f"\n🎯 RESULTADOS FINALES EN TEST SET:")
+    print(f"   Test Loss:     {test_loss:.4f}")
+    print(f"   Test Accuracy: {test_acc*100:.2f}%")
+    print(f"\n📈 RESUMEN DEL MODELO:")
+    print(f"   Mejor Val Acc:  {metrics.best_val_acc*100:.2f}% (época {metrics.best_epoch + 1})")
+    print(f"   Test Accuracy:  {test_acc*100:.2f}%")
+    print(f"   Diferencia:     {(metrics.best_val_acc - test_acc)*100:.2f}%")
+
+    # Indicador de performance
+    if test_acc >= 0.95:
+        print(f"   ⭐⭐⭐ EXCELENTE MODELO!")
+    elif test_acc >= 0.90:
+        print(f"   ⭐⭐ BUEN MODELO")
+    elif test_acc >= 0.85:
+        print(f"   ⭐ MODELO ACEPTABLE")
+    else:
+        print(f"   ⚠️  MODELO NECESITA MEJORA")
 
     metrics.update_test(test_loss, test_acc, predictions, labels)
 

@@ -1,6 +1,6 @@
 """
 Clases de Dataset para PyTorch.
-Incluye datasets para segmentación, clasificación y análisis temporal.
+Incluye datasets para clasificación y análisis temporal.
 """
 
 import os
@@ -16,109 +16,14 @@ from typing import Tuple, List, Optional, Dict
 import random
 
 from config import (
-    GESTURE_CLASSES, DATASET_DIR, SEGMENTATION_CONFIG,
+    GESTURE_CLASSES, DATASET_DIR,
     CLASSIFIER_CONFIG, TEMPORAL_CONFIG, TRAINING_CONFIG, CLASS_TO_IDX
 )
 
 
-class SegmentationDataset(Dataset):
-    """Dataset para entrenamiento de red de segmentación."""
-    
-    def __init__(self, root_dir: Path = None, transform=None, mask_transform=None, split='train'):
-        self.root_dir = root_dir or DATASET_DIR
-        self.transform = transform
-        self.mask_transform = mask_transform
-        self.split = split
-        
-        self.images_dir = self.root_dir / "images"
-        self.masks_dir = self.root_dir / "masks"
-        
-        # Recolectar todas las imágenes y máscaras
-        self.samples = []
-        for class_name in GESTURE_CLASSES.values():
-            class_img_dir = self.images_dir / class_name
-            class_mask_dir = self.masks_dir / class_name
-            
-            if not class_img_dir.exists():
-                continue
-                
-            for img_file in class_img_dir.glob("*.jpg"):
-                mask_file = class_mask_dir / f"{img_file.stem}.png"
-                if mask_file.exists():
-                    self.samples.append((img_file, mask_file))
-        
-        # Shuffle y split
-        random.seed(TRAINING_CONFIG["seed"])
-        random.shuffle(self.samples)
-        
-        n = len(self.samples)
-        train_end = int(n * TRAINING_CONFIG["train_split"])
-        val_end = train_end + int(n * TRAINING_CONFIG["val_split"])
-        
-        if split == 'train':
-            self.samples = self.samples[:train_end]
-        elif split == 'val':
-            self.samples = self.samples[train_end:val_end]
-        elif split == 'test':
-            self.samples = self.samples[val_end:]
-        
-        # Transforms por defecto
-        if self.transform is None:
-            self.transform = self._get_default_transform(split)
-        if self.mask_transform is None:
-            self.mask_transform = self._get_default_mask_transform()
-    
-    def _get_default_transform(self, split):
-        input_size = SEGMENTATION_CONFIG["input_size"]
-        if split == 'train' and TRAINING_CONFIG["augmentation"]:
-            return transforms.Compose([
-                transforms.Resize(input_size),
-                transforms.RandomHorizontalFlip(),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-                transforms.RandomRotation(15),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                   std=[0.229, 0.224, 0.225])
-            ])
-        else:
-            return transforms.Compose([
-                transforms.Resize(input_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                   std=[0.229, 0.224, 0.225])
-            ])
-    
-    def _get_default_mask_transform(self):
-        input_size = SEGMENTATION_CONFIG["input_size"]
-        return transforms.Compose([
-            transforms.Resize(input_size, interpolation=transforms.InterpolationMode.NEAREST),
-            transforms.ToTensor()
-        ])
-    
-    def __len__(self):
-        return len(self.samples)
-    
-    def __getitem__(self, idx):
-        img_path, mask_path = self.samples[idx]
-        
-        image = Image.open(img_path).convert('RGB')
-        mask = Image.open(mask_path).convert('L')
-        
-        # Aplicar mismas transformaciones geométricas a imagen y máscara
-        seed = np.random.randint(2147483647)
-        
-        random.seed(seed)
-        torch.manual_seed(seed)
-        image = self.transform(image)
-        
-        random.seed(seed)
-        torch.manual_seed(seed)
-        mask = self.mask_transform(mask)
-        
-        # Binarizar máscara
-        mask = (mask > 0.5).float()
-        
-        return image, mask
+# NOTA: SegmentationDataset ha sido ELIMINADO
+# Ya no se utiliza red de segmentación UNet en este proyecto
+# MediaPipe maneja toda la detección y segmentación de manos
 
 
 class GestureClassificationDataset(Dataset):
@@ -330,28 +235,22 @@ class TemporalSequenceDataset(Dataset):
         return frames, landmarks, class_id
 
 
-def get_dataloaders(dataset_type: str = 'classification', 
+def get_dataloaders(dataset_type: str = 'classification',
                     batch_size: int = None,
                     num_workers: int = 4) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Crea DataLoaders para train, val y test.
-    
+
     Args:
-        dataset_type: 'segmentation', 'classification', o 'temporal'
+        dataset_type: 'classification' o 'temporal' (segmentation ELIMINADO)
         batch_size: Tamaño del batch (usa default del config si es None)
         num_workers: Número de workers para carga de datos
-    
+
     Returns:
         Tuple de (train_loader, val_loader, test_loader)
     """
-    
-    if dataset_type == 'segmentation':
-        batch_size = batch_size or TRAINING_CONFIG["seg_batch_size"]
-        train_dataset = SegmentationDataset(split='train')
-        val_dataset = SegmentationDataset(split='val')
-        test_dataset = SegmentationDataset(split='test')
-    
-    elif dataset_type == 'classification':
+
+    if dataset_type == 'classification':
         batch_size = batch_size or TRAINING_CONFIG["cls_batch_size"]
         train_dataset = GestureClassificationDataset(split='train')
         val_dataset = GestureClassificationDataset(split='val')
@@ -401,7 +300,7 @@ def get_dataloaders(dataset_type: str = 'classification',
 if __name__ == "__main__":
     # Test de datasets
     print("Testeando datasets...")
-    
+
     # Test clasificación
     print("\n--- Dataset de Clasificación ---")
     try:
@@ -411,17 +310,7 @@ if __name__ == "__main__":
             break
     except Exception as e:
         print(f"Error: {e}")
-    
-    # Test segmentación
-    print("\n--- Dataset de Segmentación ---")
-    try:
-        train_loader, val_loader, test_loader = get_dataloaders('segmentation')
-        for images, masks in train_loader:
-            print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
-            break
-    except Exception as e:
-        print(f"Error: {e}")
-    
+
     # Test temporal
     print("\n--- Dataset Temporal ---")
     try:
