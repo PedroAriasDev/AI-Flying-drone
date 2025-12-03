@@ -78,14 +78,16 @@ MEDIAPIPE_CONFIG = {
 # CONFIGURACIÓN DE MODELOS
 # =============================================================================
 
-# Segmentación (UNet con MobileNetV3 backbone)
-SEGMENTATION_CONFIG = {
-    "encoder_name": "mobilenet_v2",
-    "encoder_weights": "imagenet",
-    "in_channels": 3,
-    "classes": 2,  # background, hand
-    "input_size": (256, 256),
-}
+# NOTA: Red de Segmentación UNet YA NO SE UTILIZA en este proyecto
+# MediaPipe se encarga de la detección y segmentación de manos
+# Se mantiene la configuración comentada solo por compatibilidad con código legacy
+# SEGMENTATION_CONFIG = {
+#     "encoder_name": "mobilenet_v2",
+#     "encoder_weights": "imagenet",
+#     "in_channels": 3,
+#     "classes": 2,  # background, hand
+#     "input_size": (256, 256),
+# }
 
 # Clasificador CNN (ResNet18 o MobileNetV3)
 CLASSIFIER_CONFIG = {
@@ -98,13 +100,13 @@ CLASSIFIER_CONFIG = {
 
 # Red Temporal (GRU)
 TEMPORAL_CONFIG = {
-    "sequence_length": 15,  # frames en la ventana temporal
+    "sequence_length": 30,  # frames en la ventana temporal (30 para análisis de velocidad)
     "cnn_features": 512,    # features del CNN
     "landmark_features": 63, # 21 landmarks * 3 coordenadas
     "hidden_size": 256,
     "num_layers": 2,
     "dropout": 0.3,
-    "bidirectional": False,  # False para baja latencia
+    "bidirectional": False,  # False = unidireccional para baja latencia
 }
 
 # =============================================================================
@@ -114,35 +116,36 @@ TRAINING_CONFIG = {
     # General
     "device": "cuda",  # cuda o cpu
     "seed": 42,
-    
-    # Segmentación
-    "seg_epochs": 50,
-    "seg_batch_size": 16,
-    "seg_lr": 1e-4,
-    "seg_weight_decay": 1e-5,
-    
-    # Clasificador
-    "cls_epochs": 30,
-    "cls_batch_size": 32,
-    "cls_lr": 1e-4,
+
+    # NOTA: Segmentación eliminada - MediaPipe maneja la detección de manos
+
+    # Clasificador - Optimizado para PC local
+    "cls_epochs": 100,
+    "cls_batch_size": 256,  # Batch grande para PC local
+    "cls_lr": 1e-3,  # Learning rate inicial (será variable con scheduler)
+    "cls_lr_min": 1e-6,  # LR mínimo para scheduler
     "cls_weight_decay": 1e-5,
-    
-    # Temporal
-    "temp_epochs": 50,
-    "temp_batch_size": 16,
+
+    # Temporal - Optimizado para secuencias de 30 frames
+    "temp_epochs": 100,
+    "temp_batch_size": 32,
     "temp_lr": 1e-3,
+    "temp_lr_min": 1e-6,
     "temp_weight_decay": 1e-5,
-    
+
     # Data augmentation
     "augmentation": True,
-    
-    # Early stopping
-    "patience": 10,
-    
+
+    # Early stopping (más paciencia para 100 épocas)
+    "patience": 20,
+
     # Splits
     "train_split": 0.7,
     "val_split": 0.15,
     "test_split": 0.15,
+
+    # Modelos a comparar para clasificador
+    "classifier_models": ["resnet18", "resnet34", "mobilenetv3_large", "mobilenetv3_small"],
 }
 
 # =============================================================================

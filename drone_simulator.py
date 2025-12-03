@@ -253,71 +253,243 @@ class DroneRenderer3D:
         """Renderiza la escena completa."""
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
-        
+
+        # Cielo con gradiente (fondo)
+        glClearColor(0.53, 0.81, 0.92, 1.0)  # Celeste
+
         # Cámara siguiendo al dron
         cam_distance = 15
         cam_height = 8
         cam_x = state.x - cam_distance * math.sin(math.radians(state.yaw))
         cam_z = state.z - cam_distance * math.cos(math.radians(state.yaw))
-        
+
         gluLookAt(cam_x, state.y + cam_height, cam_z,
                   state.x, state.y, state.z,
                   0, 1, 0)
-        
-        # Dibujar suelo
+
+        # Dibujar paisaje
+        self._draw_landscape()
+
+        # Dibujar suelo mejorado
         self._draw_ground()
-        
+
+        # Dibujar elementos del entorno
+        self._draw_environment()
+
         # Dibujar dron
         self._draw_drone(state)
-        
+
         # Dibujar marcadores de referencia
         self._draw_markers()
-        
+
         # Actualizar ángulo de hélices
         avg_motor = sum(state.motor_speeds) / 4
         self.propeller_angle += avg_motor * 50
     
-    def _draw_ground(self):
-        """Dibuja el suelo con cuadrícula."""
+    def _draw_landscape(self):
+        """Dibuja montañas de fondo."""
         glDisable(GL_LIGHTING)
-        
-        # Cuadrícula
-        glColor3f(0.3, 0.3, 0.3)
+
+        # Montañas lejanas (fondo)
+        mountain_positions = [
+            (-40, 0, -45, 15, 8),   # x, y, z, width, height
+            (-20, 0, -48, 20, 12),
+            (10, 0, -47, 18, 10),
+            (35, 0, -46, 12, 7),
+        ]
+
+        for mx, my, mz, mw, mh in mountain_positions:
+            # Triángulos para montañas
+            glBegin(GL_TRIANGLES)
+            # Cara frontal (gris-azulado)
+            glColor3f(0.4, 0.45, 0.5)
+            glVertex3f(mx - mw/2, my, mz)
+            glVertex3f(mx + mw/2, my, mz)
+            glVertex3f(mx, my + mh, mz)
+
+            # Cara izquierda (más oscura)
+            glColor3f(0.3, 0.35, 0.4)
+            glVertex3f(mx - mw/2, my, mz)
+            glVertex3f(mx, my + mh, mz)
+            glVertex3f(mx, my + mh, mz + 2)
+
+            # Cara derecha (más oscura)
+            glColor3f(0.3, 0.35, 0.4)
+            glVertex3f(mx + mw/2, my, mz)
+            glVertex3f(mx, my + mh, mz)
+            glVertex3f(mx, my + mh, mz + 2)
+            glEnd()
+
+        glEnable(GL_LIGHTING)
+
+    def _draw_ground(self):
+        """Dibuja el suelo mejorado con textura de césped."""
+        glDisable(GL_LIGHTING)
+
+        # Suelo de césped (verde)
+        glColor3f(0.2, 0.6, 0.2)
+        glBegin(GL_QUADS)
+        glVertex3f(-50, 0, -50)
+        glVertex3f(50, 0, -50)
+        glVertex3f(50, 0, 50)
+        glVertex3f(-50, 0, 50)
+        glEnd()
+
+        # Cuadrícula más sutil
+        glColor3f(0.25, 0.65, 0.25)
         glBegin(GL_LINES)
         for i in range(-50, 51, 5):
-            glVertex3f(i, 0, -50)
-            glVertex3f(i, 0, 50)
-            glVertex3f(-50, 0, i)
-            glVertex3f(50, 0, i)
+            glVertex3f(i, 0.01, -50)
+            glVertex3f(i, 0.01, 50)
+            glVertex3f(-50, 0.01, i)
+            glVertex3f(50, 0.01, i)
         glEnd()
-        
-        # Ejes de referencia
-        glLineWidth(2)
-        # Eje X (rojo)
+
+        # Ejes de referencia más visibles
+        glLineWidth(3)
+        # Eje X (rojo) - hacia la derecha
         glColor3f(1, 0, 0)
         glBegin(GL_LINES)
-        glVertex3f(0, 0.01, 0)
-        glVertex3f(5, 0.01, 0)
+        glVertex3f(0, 0.02, 0)
+        glVertex3f(5, 0.02, 0)
         glEnd()
-        
-        # Eje Z (azul)
+
+        # Flecha
+        glBegin(GL_TRIANGLES)
+        glVertex3f(5, 0.02, 0)
+        glVertex3f(4.5, 0.02, 0.3)
+        glVertex3f(4.5, 0.02, -0.3)
+        glEnd()
+
+        # Eje Z (azul) - hacia adelante
         glColor3f(0, 0, 1)
         glBegin(GL_LINES)
-        glVertex3f(0, 0.01, 0)
-        glVertex3f(0, 0.01, 5)
+        glVertex3f(0, 0.02, 0)
+        glVertex3f(0, 0.02, -5)
         glEnd()
-        
+
+        # Flecha
+        glBegin(GL_TRIANGLES)
+        glVertex3f(0, 0.02, -5)
+        glVertex3f(0.3, 0.02, -4.5)
+        glVertex3f(-0.3, 0.02, -4.5)
+        glEnd()
+
+        # Eje Y (verde) - hacia arriba
+        glColor3f(0, 1, 0)
+        glBegin(GL_LINES)
+        glVertex3f(0, 0.02, 0)
+        glVertex3f(0, 5, 0)
+        glEnd()
+
         glLineWidth(1)
+        glEnable(GL_LIGHTING)
+
+    def _draw_environment(self):
+        """Dibuja elementos del entorno (árboles, edificios, etc.)."""
+        # Árboles distribuidos por el terreno
+        tree_positions = [
+            (15, 0, 10), (-12, 0, 15), (20, 0, -8), (-18, 0, -12),
+            (8, 0, 20), (-25, 0, 8), (30, 0, 5), (-15, 0, -20),
+            (5, 0, -15), (-8, 0, 22), (25, 0, -15), (-22, 0, -5),
+        ]
+
+        for tx, ty, tz in tree_positions:
+            self._draw_tree(tx, ty, tz)
+
+        # Edificios pequeños (torres de control)
+        building_positions = [
+            (30, 0, 30, 2, 8, 2),      # x, y, z, width, height, depth
+            (-35, 0, 25, 2.5, 10, 2.5),
+            (-30, 0, -30, 2, 6, 2),
+        ]
+
+        for bx, by, bz, bw, bh, bd in building_positions:
+            self._draw_building(bx, by, bz, bw, bh, bd)
+
+    def _draw_tree(self, x, y, z, height=3.0):
+        """Dibuja un árbol simple."""
+        # Tronco
+        glColor3f(0.4, 0.25, 0.1)
+        glPushMatrix()
+        glTranslatef(x, y + height * 0.3, z)
+        self._draw_cylinder(0.15, height * 0.6, 8)
+        glPopMatrix()
+
+        # Copa (cono de hojas)
+        glColor3f(0.1, 0.6, 0.1)
+        glPushMatrix()
+        glTranslatef(x, y + height * 0.6, z)
+
+        # Dibujar cono simple con triángulos
+        segments = 8
+        cone_height = height * 0.8
+        cone_radius = height * 0.4
+
+        glBegin(GL_TRIANGLES)
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1 = cone_radius * math.cos(angle1)
+            z1 = cone_radius * math.sin(angle1)
+            x2 = cone_radius * math.cos(angle2)
+            z2 = cone_radius * math.sin(angle2)
+
+            # Cara lateral
+            glVertex3f(0, cone_height, 0)  # Punta
+            glVertex3f(x1, 0, z1)
+            glVertex3f(x2, 0, z2)
+
+            # Base
+            glVertex3f(0, 0, 0)
+            glVertex3f(x2, 0, z2)
+            glVertex3f(x1, 0, z1)
+        glEnd()
+
+        glPopMatrix()
+
+    def _draw_building(self, x, y, z, width, height, depth):
+        """Dibuja un edificio simple."""
+        glColor3f(0.6, 0.6, 0.65)
+
+        glPushMatrix()
+        glTranslatef(x, y + height/2, z)
+        self._draw_box(0, 0, 0, width/2, height/2, depth/2)
+        glPopMatrix()
+
+        # Techo
+        glColor3f(0.5, 0.2, 0.1)
+        glPushMatrix()
+        glTranslatef(x, y + height, z)
+        self._draw_box(0, 0.1, 0, width/2 * 1.1, 0.1, depth/2 * 1.1)
+        glPopMatrix()
+
+        # Ventanas
+        glDisable(GL_LIGHTING)
+        glColor3f(0.3, 0.3, 0.8)
+        num_floors = int(height / 1.5)
+        for floor in range(num_floors):
+            floor_y = y + 1 + floor * 1.5
+            # Ventana frontal
+            glBegin(GL_QUADS)
+            glVertex3f(x - width/4, floor_y, z + depth/2 + 0.01)
+            glVertex3f(x + width/4, floor_y, z + depth/2 + 0.01)
+            glVertex3f(x + width/4, floor_y + 0.8, z + depth/2 + 0.01)
+            glVertex3f(x - width/4, floor_y + 0.8, z + depth/2 + 0.01)
+            glEnd()
         glEnable(GL_LIGHTING)
     
     def _draw_drone(self, state: DroneState):
         """Dibuja el dron."""
         glPushMatrix()
-        
+
         # Posición
         glTranslatef(state.x, state.y, state.z)
-        
-        # Rotación
+
+        # Rotación del dron
+        # Primero rotar el modelo 90° para que el frente apunte hacia adelante (Z negativo)
+        glRotatef(90, 0, 1, 0)  # Corregir orientación base
         glRotatef(state.yaw, 0, 1, 0)
         glRotatef(state.pitch, 1, 0, 0)
         glRotatef(state.roll, 0, 0, 1)
