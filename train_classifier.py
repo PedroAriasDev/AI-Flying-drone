@@ -56,32 +56,32 @@ def freeze_backbone(model, model_name: str):
     Esto acelera el entrenamiento significativamente.
 
     Args:
-        model: Modelo a modificar
+        model: Modelo a modificar (GestureClassifier)
         model_name: Nombre del modelo (resnet18, mobilenetv3_large, etc.)
     """
     print("🔒 Congelando backbone (transfer learning)...")
 
-    # Congelar todos los parámetros primero
-    for param in model.parameters():
-        param.requires_grad = False
+    # El modelo GestureClassifier tiene estructura:
+    # - model.backbone: ResNet/MobileNet (sin fc/classifier original)
+    # - model.classifier: nn.Sequential personalizado
 
-    # Descongelar solo las últimas capas según el modelo
-    if 'resnet' in model_name.lower():
-        # Para ResNet: descongelar solo la capa fc (fully connected)
-        for param in model.fc.parameters():
-            param.requires_grad = True
-    elif 'mobilenet' in model_name.lower():
-        # Para MobileNet: descongelar solo el classifier
+    # Congelar todo el backbone
+    if hasattr(model, 'backbone'):
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+    else:
+        # Si no tiene backbone, congelar todo y luego descongelar classifier
+        for param in model.parameters():
+            param.requires_grad = False
+
+    # Descongelar el clasificador personalizado
+    if hasattr(model, 'classifier'):
         for param in model.classifier.parameters():
             param.requires_grad = True
-    else:
-        # Default: intentar descongelar fc o classifier
-        if hasattr(model, 'fc'):
-            for param in model.fc.parameters():
-                param.requires_grad = True
-        elif hasattr(model, 'classifier'):
-            for param in model.classifier.parameters():
-                param.requires_grad = True
+    elif hasattr(model, 'fc'):
+        # Fallback si el modelo tiene estructura diferente
+        for param in model.fc.parameters():
+            param.requires_grad = True
 
     # Contar parámetros congelados vs entrenables
     total_params = sum(p.numel() for p in model.parameters())
