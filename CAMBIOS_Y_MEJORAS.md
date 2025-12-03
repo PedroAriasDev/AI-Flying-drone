@@ -4,7 +4,26 @@ Este documento detalla todas las modificaciones realizadas al proyecto de contro
 
 ---
 
-## 🎯 Resumen de Cambios
+## ⚠️ CAMBIO IMPORTANTE: Eliminación de Red de Segmentación UNet
+
+**La red de segmentación UNet ha sido eliminada del flujo de trabajo.**
+
+**Razón:** MediaPipe Hands ya proporciona detección y segmentación de manos de alta calidad, por lo que una red UNet adicional es redundante e innecesaria.
+
+**Impacto:**
+- ✅ Menor tiempo de entrenamiento (se eliminan ~2 horas)
+- ✅ Arquitectura más simple y mantenible
+- ✅ Menor uso de recursos computacionales
+- ✅ MediaPipe maneja la segmentación en tiempo real eficientemente
+
+**Archivos afectados:**
+- `config.py`: SEGMENTATION_CONFIG comentado
+- `train_segmentation.py`: Ya no se utiliza (se mantiene solo por compatibilidad)
+- `models/segmentation.py`: Ya no se utiliza (legacy code)
+
+---
+
+## 🎯 Resumen de Cambios Principales
 
 ### 1. **Optimización para Entrenamiento Local en PC**
 

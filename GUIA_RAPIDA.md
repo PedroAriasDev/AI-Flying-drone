@@ -1,5 +1,9 @@
 # 🚀 Guía Rápida de Uso - Control de Dron con Gestos
 
+> **📌 NOTA IMPORTANTE:** Este proyecto ya NO utiliza red de segmentación UNet. MediaPipe Hands maneja toda la detección y segmentación de manos. Solo se entrenan:
+> 1. **Clasificadores CNN** (4 modelos a comparar)
+> 2. **Red Temporal GRU** (30 frames)
+
 ## ⚡ Inicio Rápido
 
 ### 1. Instalación

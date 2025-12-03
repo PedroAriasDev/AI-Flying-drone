@@ -78,14 +78,16 @@ MEDIAPIPE_CONFIG = {
 # CONFIGURACIÓN DE MODELOS
 # =============================================================================
 
-# Segmentación (UNet con MobileNetV3 backbone)
-SEGMENTATION_CONFIG = {
-    "encoder_name": "mobilenet_v2",
-    "encoder_weights": "imagenet",
-    "in_channels": 3,
-    "classes": 2,  # background, hand
-    "input_size": (256, 256),
-}
+# NOTA: Red de Segmentación UNet YA NO SE UTILIZA en este proyecto
+# MediaPipe se encarga de la detección y segmentación de manos
+# Se mantiene la configuración comentada solo por compatibilidad con código legacy
+# SEGMENTATION_CONFIG = {
+#     "encoder_name": "mobilenet_v2",
+#     "encoder_weights": "imagenet",
+#     "in_channels": 3,
+#     "classes": 2,  # background, hand
+#     "input_size": (256, 256),
+# }
 
 # Clasificador CNN (ResNet18 o MobileNetV3)
 CLASSIFIER_CONFIG = {
@@ -115,11 +117,7 @@ TRAINING_CONFIG = {
     "device": "cuda",  # cuda o cpu
     "seed": 42,
 
-    # Segmentación
-    "seg_epochs": 100,
-    "seg_batch_size": 32,
-    "seg_lr": 1e-4,
-    "seg_weight_decay": 1e-5,
+    # NOTA: Segmentación eliminada - MediaPipe maneja la detección de manos
 
     # Clasificador - Optimizado para PC local
     "cls_epochs": 100,

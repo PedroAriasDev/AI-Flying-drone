@@ -10,10 +10,9 @@ Sistema de control de dron mediante gestos de manos utilizando visión por compu
 
 Este proyecto implementa un sistema completo para controlar un dron virtual (simulador 3D) usando gestos de manos capturados por webcam. El sistema utiliza:
 
-- **MediaPipe Hands**: Detección de manos y extracción de landmarks (21 puntos)
-- **Red de Segmentación (UNet)**: Segmenta la mano del fondo
-- **Red Clasificadora (CNN)**: Clasifica el gesto entre 11 clases
-- **Red Temporal (GRU)**: Analiza secuencias para suavizado y detección de intensidad
+- **MediaPipe Hands**: Detección de manos, segmentación automática y extracción de landmarks (21 puntos)
+- **Red Clasificadora (CNN)**: Clasifica el gesto entre 11 clases. Se comparan 4 arquitecturas: ResNet18, ResNet34, MobileNetV3-Large y MobileNetV3-Small
+- **Red Temporal (GRU)**: Analiza secuencias de 30 frames para suavizado y detección de intensidad del gesto
 
 ---
 
@@ -37,29 +36,31 @@ Este proyecto implementa un sistema completo para controlar un dron virtual (sim
 ## 📁 Estructura del Proyecto
 
 ```
-drone_gesture_control/
-├── config.py                 # Configuración global
-├── main.py                   # Script principal
-├── dataset_recorder.py       # Grabador de dataset
-├── inference.py              # Sistema de inferencia en tiempo real
-├── drone_simulator.py        # Simulador 3D del dron
-├── datasets.py               # Clases de Dataset PyTorch
-├── training_utils.py         # Utilidades de entrenamiento
-├── train_classifier.py       # Entrenamiento de CNN
-├── train_segmentation.py     # Entrenamiento de UNet
-├── train_temporal.py         # Entrenamiento de GRU
-├── train_colab.ipynb         # Notebook para Google Colab
-├── requirements.txt          # Dependencias
+AI-Flying-drone/
+├── config.py                      # Configuración global
+├── main.py                        # Script principal
+├── dataset_recorder.py            # Grabador de dataset
+├── inference.py                   # Sistema de inferencia en tiempo real
+├── drone_simulator.py             # Simulador 3D mejorado con paisaje
+├── datasets.py                    # Clases de Dataset PyTorch
+├── training_utils.py              # Utilidades de entrenamiento
+├── train_classifier.py            # Entrenamiento de CNN individual
+├── train_classifier_compare.py   # 🆕 Entrenamiento comparativo de 4 modelos
+├── train_temporal.py              # Entrenamiento de GRU (30 frames)
+├── visualize_architectures.py    # 🆕 Visualización de arquitecturas
+├── CAMBIOS_Y_MEJORAS.md           # 🆕 Documentación de cambios
+├── GUIA_RAPIDA.md                 # 🆕 Guía de uso rápida
+├── requirements.txt               # Dependencias
 ├── models/
 │   ├── __init__.py
-│   ├── classifier.py         # Modelo clasificador CNN
-│   ├── segmentation.py       # Modelo UNet
-│   └── temporal.py           # Modelo GRU temporal
+│   ├── classifier.py              # 4 modelos CNN comparables
+│   ├── temporal.py                # Modelo GRU temporal (30 frames)
+│   └── segmentation.py            # (NO USADO - solo legacy)
 ├── data/
-│   └── dataset/              # Dataset de gestos
-├── checkpoints/              # Modelos entrenados
-├── results/                  # Resultados y gráficos
-└── logs/                     # Logs de entrenamiento
+│   └── dataset/                   # Dataset de gestos
+├── checkpoints/                   # Modelos entrenados
+├── results/                       # Resultados y gráficos comparativos
+└── logs/                          # Logs de entrenamiento
 ```
 
 ---
@@ -113,25 +114,30 @@ python main.py --mode record
 - Variar ángulos de la mano
 - Total: ~1.5-2 horas de grabación
 
-### Paso 2: Entrenar Modelos
+### Paso 2: Entrenar Modelos (PC Local - Optimizado)
 
-#### Opción A: Local (GPU NVIDIA)
 ```bash
-# Entrenar clasificador CNN
-python train_classifier.py --epochs 30 --batch_size 32
+# 1. Entrenar y comparar 4 clasificadores CNN automáticamente (100 épocas)
+python train_classifier_compare.py
 
-# Entrenar red de segmentación
-python train_segmentation.py --epochs 50
+# 2. Entrenar red temporal GRU (30 frames, 100 épocas)
+python train_temporal.py --epochs 100 --batch_size 32
 
-# Entrenar red temporal
-python train_temporal.py --epochs 50
+# 3. (Opcional) Visualizar arquitecturas de las redes
+python visualize_architectures.py
 ```
 
-#### Opción B: Google Colab
-1. Subir dataset a Google Drive
-2. Abrir `train_colab.ipynb` en Colab
-3. Ejecutar todas las celdas
-4. Descargar checkpoints
+**Características del nuevo sistema:**
+- ✅ Entrenamiento optimizado para GPU local (no Colab)
+- ✅ 100 épocas con batch size 256
+- ✅ Comparación automática de 4 modelos
+- ✅ Selección del mejor modelo basada en métricas
+- ✅ Gráficos y análisis generados automáticamente
+
+**Tiempo estimado** (GPU RTX 3060/3070):
+- Clasificadores (4 modelos): ~4-5 horas
+- Red temporal: ~1-2 horas
+- **Total: ~6-7 horas**
 
 ### Paso 3: Ejecutar Sistema
 
@@ -180,37 +186,63 @@ Sistema completo: la webcam captura gestos que controlan el dron en el simulador
 
 ## 📈 Arquitectura de Redes
 
-### Red Clasificadora (CNN)
-- **Backbone**: ResNet18 pre-entrenado en ImageNet
-- **Entrada**: Imágenes 224x224
-- **Salida**: 11 clases de gestos
-- **Transfer Learning**: Fine-tuning de todas las capas
+### Red Clasificadora (CNN) - 4 Modelos Comparados
 
-### Red de Segmentación (UNet)
-- **Encoder**: MobileNetV2 pre-entrenado
-- **Entrada**: Imágenes 256x256
-- **Salida**: Máscara binaria (mano/fondo)
-- **Loss**: Dice + BCE combinado
+Se entrenan y comparan automáticamente 4 arquitecturas:
 
-### Red Temporal (GRU)
-- **Entrada**: Secuencia de 15 frames (CNN features + landmarks)
+1. **ResNet18**
+   - Parámetros: ~11M
+   - Rápido y eficiente
+   - Baseline sólido
+
+2. **ResNet34**
+   - Parámetros: ~21M
+   - Más profundo, mejor capacidad
+   - Mayor accuracy potencial
+
+3. **MobileNetV3-Large**
+   - Parámetros: ~5.5M
+   - Optimizado para móviles
+   - Buen balance velocidad/accuracy
+
+4. **MobileNetV3-Small**
+   - Parámetros: ~2.5M
+   - Muy ligero y rápido
+   - Ideal para inferencia en tiempo real
+
+**Configuración común:**
+- Entrada: 224x224x3
+- Salida: 11 clases de gestos
+- Transfer Learning: Pre-entrenado en ImageNet
+- Fine-tuning: Todas las capas
+
+### Red Temporal (GRU Unidireccional)
+
+- **Secuencia**: 30 frames (1 segundo @ 30fps)
+- **Arquitectura**: Unidireccional (baja latencia)
+- **Input**: CNN features (512D) + MediaPipe landmarks (63D)
 - **Hidden Size**: 256
 - **Layers**: 2
-- **Salidas**: 
-  - Clasificación de gesto
-  - Intensidad del movimiento (0-1)
+- **Outputs**:
+  - Clasificación de gesto (11 clases)
+  - Intensidad del movimiento (0-1) - detecta gestos bruscos vs suaves
+- **Attention**: Mecanismo de atención sobre secuencia temporal
 
 ---
 
 ## 📊 Métricas Objetivo
 
-| Modelo | Métrica | Objetivo |
-|--------|---------|----------|
-| Clasificador CNN | Accuracy | >95% |
-| Segmentación UNet | IoU | >90% |
-| Red Temporal GRU | Accuracy | >90% |
+| Modelo | Métrica | Objetivo Actualizado |
+|--------|---------|---------------------|
+| Clasificador CNN | Test Accuracy | >97% |
+| Clasificador CNN | Overfitting Score | <0.05 |
+| Red Temporal GRU | Test Accuracy | >93% |
 | Sistema completo | Latencia | <100ms |
 | Sistema completo | FPS | ≥20 |
+
+**Nuevas métricas implementadas:**
+- **Overfitting Score**: Diferencia entre train y val accuracy (menor es mejor)
+- **Performance Score**: Combina val_acc (40%) + test_acc (60%) para selección del mejor modelo
 
 ---
 
