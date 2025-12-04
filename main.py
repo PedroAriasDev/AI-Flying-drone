@@ -168,11 +168,27 @@ class IntegratedSystem:
                     if event.key == K_ESCAPE:
                         self.running = False
             
-            # Obtener comandos de la cola
+            # Obtener comandos de la cola y actualizar el simulador
             while not self.command_queue.empty():
                 cmd = self.command_queue.get()
-                self.simulator.set_command(cmd)
+                # Actualizar directamente el current_command del simulador
+                self.simulator.current_command = {
+                    'pitch': cmd.get('pitch', 0.0),
+                    'roll': cmd.get('roll', 0.0),
+                    'yaw': cmd.get('yaw', 0.0),
+                    'throttle': cmd.get('throttle', 0.0),
+                    'hover': cmd.get('hover', False),
+                    'emergency': cmd.get('emergency', False)
+                }
                 self.simulator.gesture_name = cmd.get('gesture', 'NO_GESTURE')
+
+                # Debug: mostrar comandos recibidos por el simulador
+                if self.debug and self.simulator.gesture_name != "NO_GESTURE":
+                    print(f"[SIMULATOR] Aplicando comando: {self.simulator.gesture_name} -> "
+                          f"pitch={self.simulator.current_command['pitch']:.2f}, "
+                          f"roll={self.simulator.current_command['roll']:.2f}, "
+                          f"yaw={self.simulator.current_command['yaw']:.2f}, "
+                          f"throttle={self.simulator.current_command['throttle']:.2f}")
             
             # Actualizar física
             self.simulator.state = self.simulator.physics.update(
