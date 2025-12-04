@@ -375,18 +375,25 @@ class GestureInferenceSystem:
                 
                 break  # Solo procesar primera mano
         
-        # Filtrar por umbral de confianza
+        # Filtrar por umbral de confianza (reducido para ser menos restrictivo)
         if confidence < INFERENCE_CONFIG["confidence_threshold"]:
             gesture_id = 10  # NO_GESTURE
-        
-        # Verificar hold de gesto
+            confidence = 0.0
+
+        # SIMPLIFICADO: Tomar directamente el gesto más probable sin tanto suavizado
+        # Solo aplicar hold si el usuario tiene configuración conservadora
         if gesture_id == self.current_gesture:
             self.gesture_hold_counter += 1
         else:
             self.gesture_hold_counter = 0
-            
-        # Solo cambiar gesto si se mantiene suficientes frames
-        if self.gesture_hold_counter >= INFERENCE_CONFIG["gesture_hold_frames"]:
+            # Cambiar inmediatamente al nuevo gesto si supera umbral mínimo
+            # Reducimos de gesture_hold_frames a solo 1 frame para respuesta más rápida
+            if confidence > INFERENCE_CONFIG["confidence_threshold"]:
+                self.current_gesture = gesture_id
+                self.current_confidence = confidence
+
+        # Si el hold counter es suficiente, actualizar
+        if self.gesture_hold_counter >= 1:  # Reducido de gesture_hold_frames a 1
             self.current_gesture = gesture_id
             self.current_confidence = confidence
         

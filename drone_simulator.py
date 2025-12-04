@@ -740,15 +740,16 @@ class DroneRenderer2D:
 class DroneSimulator:
     """Simulador principal del dron."""
     
-    def __init__(self, width: int = None, height: int = None, use_3d: bool = True):
+    def __init__(self, width: int = None, height: int = None, use_3d: bool = True, debug: bool = False):
         self.width = width or SIMULATOR_CONFIG["window_width"]
         self.height = height or SIMULATOR_CONFIG["window_height"]
         self.use_3d = use_3d and OPENGL_AVAILABLE
-        
+        self.debug = debug
+
         # Inicializar pygame
         pygame.init()
         pygame.font.init()
-        
+
         if self.use_3d:
             self.screen = pygame.display.set_mode(
                 (self.width, self.height),
@@ -758,24 +759,24 @@ class DroneSimulator:
         else:
             self.screen = pygame.display.set_mode((self.width, self.height))
             self.renderer = DroneRenderer2D(self.screen)
-        
+
         pygame.display.set_caption("Drone Simulator - Control por Gestos")
-        
+
         # Estado y física
         self.state = DroneState()
         self.physics = DronePhysics()
-        
+
         # Control
         self.command_queue = Queue()
         self.current_command = {
             'pitch': 0.0, 'roll': 0.0, 'yaw': 0.0,
             'throttle': 0.0, 'hover': False, 'emergency': False
         }
-        
+
         # Tiempo
         self.clock = pygame.time.Clock()
         self.running = True
-        
+
         # Modo
         self.gesture_mode = False
         self.gesture_name = "NO_GESTURE"
@@ -842,6 +843,14 @@ class DroneSimulator:
                 'emergency': cmd.get('emergency', False)
             }
             self.gesture_name = cmd.get('gesture', 'NO_GESTURE')
+
+            # Debug: mostrar comandos recibidos
+            if self.debug and self.gesture_name != "NO_GESTURE":
+                print(f"[SIMULATOR DEBUG] Comando recibido: {self.gesture_name} -> "
+                      f"pitch={self.current_command['pitch']:.2f}, "
+                      f"roll={self.current_command['roll']:.2f}, "
+                      f"yaw={self.current_command['yaw']:.2f}, "
+                      f"throttle={self.current_command['throttle']:.2f}")
     
     def _draw_hud(self):
         """Dibuja HUD sobre la vista 3D."""

@@ -152,9 +152,9 @@ TRAINING_CONFIG = {
 # CONFIGURACIÓN DE INFERENCIA
 # =============================================================================
 INFERENCE_CONFIG = {
-    "confidence_threshold": 0.7,
-    "smoothing_window": 5,  # frames para suavizado
-    "gesture_hold_frames": 3,  # frames mínimos para confirmar gesto
+    "confidence_threshold": 0.5,  # Reducido de 0.7 a 0.5 para ser menos restrictivo
+    "smoothing_window": 3,  # Reducido de 5 a 3 para respuesta más rápida
+    "gesture_hold_frames": 1,  # Reducido de 3 a 1 para tomar el valor más probable inmediatamente
 }
 
 # =============================================================================
