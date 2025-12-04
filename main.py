@@ -109,11 +109,18 @@ class IntegratedSystem:
                 
                 # Procesar frame
                 command, annotated_frame = self.inference_system.process_frame(frame)
-                
+
                 # Enviar comando al simulador
                 cmd_dict = command.to_dict()
                 self.command_queue.put(cmd_dict)
                 self.last_command = command
+
+                # Debug: mostrar comandos que se están enviando
+                if self.debug and command.gesture != "NO_GESTURE":
+                    print(f"[DEBUG] Enviando comando: {command.gesture} "
+                          f"(conf: {command.confidence:.2f}, "
+                          f"pitch: {command.pitch:.2f}, roll: {command.roll:.2f}, "
+                          f"yaw: {command.yaw:.2f}, throttle: {command.throttle:.2f})")
                 
                 # Mostrar frame anotado
                 cv2.imshow("Gesture Control", annotated_frame)
@@ -141,9 +148,9 @@ class IntegratedSystem:
     def _simulator_loop(self):
         """Bucle del simulador que corre en el thread principal."""
         print("Iniciando simulador...")
-        
+
         # Crear simulador
-        self.simulator = DroneSimulator(use_3d=True)
+        self.simulator = DroneSimulator(use_3d=True, debug=self.debug)
         
         import pygame
         from pygame.locals import QUIT, KEYDOWN, K_ESCAPE
