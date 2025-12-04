@@ -37,18 +37,21 @@ class IntegratedSystem:
     mientras el simulador corre en el thread principal (para OpenGL).
     """
     
-    def __init__(self, 
+    def __init__(self,
                  use_temporal: bool = True,
-                 device: str = 'cuda'):
+                 device: str = 'cuda',
+                 debug: bool = False):
         """
         Inicializa el sistema integrado.
-        
+
         Args:
             use_temporal: Si usar modelo temporal para suavizado
             device: Dispositivo para inferencia (cuda/cpu)
+            debug: Si activar modo debug
         """
         self.device = device if torch.cuda.is_available() else 'cpu'
         self.use_temporal = use_temporal
+        self.debug = debug
         
         # Cola para comunicación entre threads
         self.command_queue = Queue()
@@ -75,7 +78,8 @@ class IntegratedSystem:
         # Inicializar sistema de inferencia
         self.inference_system = GestureInferenceSystem(
             device=self.device,
-            use_temporal=self.use_temporal
+            use_temporal=self.use_temporal,
+            debug=self.debug
         )
         
         # Abrir cámara
@@ -215,13 +219,14 @@ class IntegratedSystem:
         print("\nSistema terminado correctamente")
 
 
-def run_demo():
+def run_demo(debug=False):
     """Ejecuta solo la demo de inferencia (sin simulador)."""
     print("\n=== MODO DEMO: Solo Inferencia ===\n")
-    
+
     system = GestureInferenceSystem(
         device='cuda' if torch.cuda.is_available() else 'cpu',
-        use_temporal=True
+        use_temporal=True,
+        debug=debug
     )
     system.run_demo()
 
@@ -234,13 +239,14 @@ def run_simulator():
     simulator.run(gesture_mode=False)
 
 
-def run_integrated():
+def run_integrated(debug=False):
     """Ejecuta el sistema integrado completo."""
     print("\n=== MODO INTEGRADO: Gestos + Simulador ===\n")
-    
+
     system = IntegratedSystem(
         use_temporal=True,
-        device='cuda' if torch.cuda.is_available() else 'cpu'
+        device='cuda' if torch.cuda.is_available() else 'cpu',
+        debug=debug
     )
     system.run()
 
@@ -301,14 +307,16 @@ Ejemplos:
                         help='Dispositivo para inferencia (cuda/cpu)')
     parser.add_argument('--no-temporal', action='store_true',
                         help='Desactivar modelo temporal')
-    
+    parser.add_argument('--debug', action='store_true',
+                        help='Activar modo debug (muestra outputs de la red)')
+
     args = parser.parse_args()
-    
+
     print("\n" + "="*60)
     print("  DRONE GESTURE CONTROL SYSTEM")
     print("  Proyecto Final - Inteligencia Artificial")
     print("="*60)
-    
+
     # Verificar modelos si es necesario
     if args.mode in ['demo', 'integrated']:
         if not check_models():
@@ -319,14 +327,14 @@ Ejemplos:
             print("  python train_temporal.py")
             print("  python train_segmentation.py")
             print()
-    
+
     # Ejecutar modo seleccionado
     if args.mode == 'demo':
-        run_demo()
+        run_demo(debug=args.debug)
     elif args.mode == 'simulator':
         run_simulator()
     elif args.mode == 'integrated':
-        run_integrated()
+        run_integrated(debug=args.debug)
     elif args.mode == 'record':
         run_recorder()
     elif args.mode == 'check':

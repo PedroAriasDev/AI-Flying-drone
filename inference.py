@@ -71,16 +71,17 @@ class GestureInferenceSystem:
     - Lógica de suavizado y control
     """
     
-    def __init__(self, 
+    def __init__(self,
                  device: str = 'cuda',
                  use_temporal: bool = True,
                  use_segmentation: bool = False,
                  classifier_path: Path = None,
                  temporal_path: Path = None,
-                 segmentation_path: Path = None):
+                 segmentation_path: Path = None,
+                 debug: bool = False):
         """
         Inicializa el sistema de inferencia.
-        
+
         Args:
             device: Dispositivo para inferencia (cuda/cpu)
             use_temporal: Si usar modelo temporal para suavizado
@@ -88,18 +89,22 @@ class GestureInferenceSystem:
             classifier_path: Ruta al checkpoint del clasificador
             temporal_path: Ruta al checkpoint del modelo temporal
             segmentation_path: Ruta al checkpoint del modelo de segmentación
+            debug: Si activar modo debug (muestra outputs de la red)
         """
         self.device = device if torch.cuda.is_available() else 'cpu'
         self.use_temporal = use_temporal
         self.use_segmentation = use_segmentation
-        
+        self.debug = debug
+
         print(f"Inicializando sistema de inferencia en {self.device}...")
-        
+        if debug:
+            print("🔍 MODO DEBUG ACTIVADO - Se mostrarán outputs de las redes")
+
         # Inicializar MediaPipe
         self.mp_hands = mp.solutions.hands
         self.mp_draw = mp.solutions.drawing_utils
         self.hands = self.mp_hands.Hands(**MEDIAPIPE_CONFIG)
-        
+
         # Transformaciones de imagen
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
@@ -108,25 +113,35 @@ class GestureInferenceSystem:
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                std=[0.229, 0.224, 0.225])
         ])
-        
+
         # Cargar modelos
         self._load_models(classifier_path, temporal_path, segmentation_path)
-        
+
         # Buffers para procesamiento temporal
         self.frame_buffer = deque(maxlen=TEMPORAL_CONFIG["sequence_length"])
         self.landmark_buffer = deque(maxlen=TEMPORAL_CONFIG["sequence_length"])
         self.prediction_buffer = deque(maxlen=INFERENCE_CONFIG["smoothing_window"])
         self.confidence_buffer = deque(maxlen=INFERENCE_CONFIG["smoothing_window"])
-        
+
         # Estado actual
         self.current_gesture = "NO_GESTURE"
         self.current_confidence = 0.0
         self.gesture_hold_counter = 0
-        
+
         # Métricas de rendimiento
         self.fps_counter = deque(maxlen=30)
         self.last_inference_time = 0
-        
+
+        # Debug info
+        self.debug_info = {
+            'logits': None,
+            'probs': None,
+            'top5_classes': [],
+            'top5_probs': [],
+            'temporal_output': None,
+            'hand_detected': False
+        }
+
         print("Sistema de inferencia inicializado correctamente.")
     
     def _load_models(self, classifier_path, temporal_path, segmentation_path):
@@ -222,17 +237,28 @@ class GestureInferenceSystem:
         """Clasifica el gesto usando el CNN."""
         if roi.size == 0:
             return 10, 0.0  # NO_GESTURE
-        
+
         # Preprocesar
         roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
         input_tensor = self.transform(roi_rgb).unsqueeze(0).to(self.device)
-        
+
         # Inferencia
         with torch.no_grad():
             logits = self.classifier(input_tensor)
             probs = F.softmax(logits, dim=1)
             confidence, pred_class = torch.max(probs, dim=1)
-        
+
+            # Guardar info de debug
+            if self.debug:
+                self.debug_info['logits'] = logits[0].cpu().numpy()
+                self.debug_info['probs'] = probs[0].cpu().numpy()
+
+                # Top 5 predicciones
+                top5_probs, top5_indices = torch.topk(probs[0], min(5, len(probs[0])))
+                self.debug_info['top5_classes'] = [(GESTURE_CLASSES.get(idx.item(), f"Class_{idx.item()}"),
+                                                    prob.item())
+                                                   for idx, prob in zip(top5_indices, top5_probs)]
+
         return pred_class.item(), confidence.item()
     
     def process_temporal(self, frame_tensor: torch.Tensor, 
@@ -308,11 +334,15 @@ class GestureInferenceSystem:
         
         # Detectar manos con MediaPipe
         results = self.hands.process(frame_rgb)
-        
+
         gesture_id = 10  # NO_GESTURE por defecto
         confidence = 0.0
         intensity = 1.0
-        
+
+        # Actualizar debug info
+        if self.debug:
+            self.debug_info['hand_detected'] = results.multi_hand_landmarks is not None
+
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 # Dibujar landmarks
@@ -377,7 +407,84 @@ class GestureInferenceSystem:
         
         return command, frame
     
-    def _annotate_frame(self, frame: np.ndarray, command: DroneCommand, 
+    def _draw_debug_overlay(self, frame: np.ndarray) -> np.ndarray:
+        """Dibuja información de debug en el frame."""
+        h, w = frame.shape[:2]
+
+        # Panel de debug más grande
+        debug_panel_width = 350
+        cv2.rectangle(frame, (0, 90), (debug_panel_width, h - 10), (20, 20, 20), -1)
+        cv2.rectangle(frame, (0, 90), (debug_panel_width, h - 10), (100, 100, 100), 2)
+
+        y_offset = 115
+        line_height = 20
+
+        # Título
+        cv2.putText(frame, "DEBUG MODE", (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX,
+                   0.7, (0, 255, 255), 2)
+        y_offset += 30
+
+        # Estado de detección
+        hand_status = "SI" if self.debug_info['hand_detected'] else "NO"
+        hand_color = (0, 255, 0) if self.debug_info['hand_detected'] else (0, 0, 255)
+        cv2.putText(frame, f"Mano detectada: {hand_status}", (10, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, hand_color, 1)
+        y_offset += line_height + 10
+
+        # Estado de buffers
+        cv2.putText(frame, "Buffers:", (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX,
+                   0.5, (255, 255, 0), 1)
+        y_offset += line_height
+        cv2.putText(frame, f"  Pred: {len(self.prediction_buffer)}/{self.prediction_buffer.maxlen}",
+                   (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
+        y_offset += line_height
+        cv2.putText(frame, f"  Conf: {len(self.confidence_buffer)}/{self.confidence_buffer.maxlen}",
+                   (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
+        y_offset += line_height
+        cv2.putText(frame, f"  Hold: {self.gesture_hold_counter} frames",
+                   (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
+        y_offset += line_height + 10
+
+        # Top 5 predicciones
+        if self.debug_info['top5_classes']:
+            cv2.putText(frame, "Top 5 Predicciones:", (10, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+            y_offset += line_height
+
+            for i, (gesture_name, prob) in enumerate(self.debug_info['top5_classes'][:5]):
+                # Barra de probabilidad
+                bar_width = int(prob * 200)
+                bar_color = (0, 255, 0) if i == 0 else (100, 150, 255)
+                cv2.rectangle(frame, (120, y_offset - 12), (120 + bar_width, y_offset - 4),
+                             bar_color, -1)
+
+                # Texto
+                text = f"{i+1}. {gesture_name[:12]}: {prob*100:.1f}%"
+                cv2.putText(frame, text, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX,
+                           0.4, (200, 200, 200), 1)
+                y_offset += line_height
+
+        # Probabilidades raw (solo si hay)
+        if self.debug_info['probs'] is not None:
+            y_offset += 10
+            cv2.putText(frame, "Todas las Probs:", (10, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+            y_offset += line_height
+
+            probs = self.debug_info['probs']
+            for class_id, prob in enumerate(probs):
+                if prob > 0.01:  # Solo mostrar si prob > 1%
+                    gesture_name = GESTURE_CLASSES.get(class_id, f"C{class_id}")
+                    text = f"  {gesture_name[:10]}: {prob*100:.1f}%"
+                    cv2.putText(frame, text, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX,
+                               0.35, (150, 150, 150), 1)
+                    y_offset += 15
+                    if y_offset > h - 30:  # No salir del frame
+                        break
+
+        return frame
+
+    def _annotate_frame(self, frame: np.ndarray, command: DroneCommand,
                         fps: float) -> np.ndarray:
         """Añade anotaciones al frame."""
         h, w = frame.shape[:2]
@@ -433,7 +540,11 @@ class GestureInferenceSystem:
         if command.emergency:
             cv2.putText(frame, "EMERGENCY!", (w - 180, y_offset + 30), cv2.FONT_HERSHEY_SIMPLEX,
                        0.6, (0, 0, 255), 2)
-        
+
+        # Agregar debug overlay si está activado
+        if self.debug:
+            frame = self._draw_debug_overlay(frame)
+
         return frame
     
     def run_demo(self):
@@ -491,13 +602,16 @@ def main():
                         help='Desactivar modelo temporal')
     parser.add_argument('--segmentation', action='store_true',
                         help='Activar modelo de segmentación')
-    
+    parser.add_argument('--debug', action='store_true',
+                        help='Activar modo debug (muestra outputs de la red)')
+
     args = parser.parse_args()
-    
+
     system = GestureInferenceSystem(
         device=args.device,
         use_temporal=not args.no_temporal,
-        use_segmentation=args.segmentation
+        use_segmentation=args.segmentation,
+        debug=args.debug
     )
     
     if args.mode == 'demo':
